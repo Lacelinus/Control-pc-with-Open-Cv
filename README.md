@@ -1,4 +1,4 @@
-#Computer control with fingers
+##Computer control with fingers
 
 This project allows you to control your computer's volume and video playback using hand gestures detected by OpenCV. Specifically, you can use your thumb, index finger, middle finger, and pinky to perform the following actions:
 

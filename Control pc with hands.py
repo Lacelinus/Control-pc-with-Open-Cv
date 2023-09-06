@@ -9,104 +9,100 @@ import time
 
 #%%
 
-# Kameradan video akışı alır (0, yerel kamera)
+# Capture video stream from the camera (0 for the local camera)
 cap = cv2.VideoCapture(0)
 
-# mediapipe kütüphanesinden çizim işlevlerini içe aktarır
+# Import drawing functions from the mediapipe library
 mpDraw = solutions.drawing_utils
 
-# mediapipe kütüphanesinden el algılama (hands) modelini içe aktarır
+# Import the hand detection (hands) model from the mediapipe library
 mpHands = solutions.hands
 
-# En fazla bir eli algılamak için Hands sınıfını başlatır
+# Initialize the Hands class to detect at most one hand
 hands = mpHands.Hands(max_num_hands=1)
 
-# Ses cihazlarını alır (örneğin, hoparlörler)
+# Get audio devices (e.g., speakers)
 devices = AudioUtilities.GetSpeakers()
 
-# Sistem ses seviyesini değiştirmek için bir arayüzü etkinleştirir
+# Activate an interface to change the system volume
 interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
 
-# Ses seviyesini değiştirmek için IAudioEndpointVolume arabirimini kullanır
+# Use the IAudioEndpointVolume interface to control the audio
 volume = interface.QueryInterface(IAudioEndpointVolume)
 
 #%%
 
-# Renk kodu tanımlaması (Mavi renk)
+# Define color coding (Blue color)
 color = (0, 255, 255)
 
-# İlgilenilen el landmark'larının indekslerini içeren bir liste
+# List containing the indexes of relevant hand landmarks
 idlist = (13, 15)
 
-# Ölçülen mesafelerin depolanacağı bir boş liste
+# An empty list to store measured distances
 dislist = []
 
-# Ses seviye oranlarının depolanacağı bir boş liste
+# An empty list to store audio volume ratios
 ratio = []
 
-# Başlangıç ses seviyesi (yüzde olarak, %50)
+# Initial audio volume (in percentage, starting at 50%)
 vol = 50
-  
 
+  
 #%%
 
-# Sistem ses seviyesini ayarlamak için bir fonkisyon tanımlar.
+# Define a function to set the system volume
 def set_system_volume(new_volume):
     
-    # Ses cihazlarını alır (örneğin, hoparlörler)
+    # Get audio devices (e.g., speakers)
     devices = AudioUtilities.GetSpeakers()
     
-    # Ses seviyesini değiştirmek için bir arabirimi etkinleştirir
+    # Activate an interface to change the audio volume
     interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
     
-    # IAudioEndpointVolume arabirimini kullanarak ses kontrolünü sağlar
+    # Control audio using the IAudioEndpointVolume interface
     volume = cast(interface, POINTER(IAudioEndpointVolume))
     
-    # Yeni ses seviyesini belirtilen ölçekte ayarlar (0.0 - 1.0 arası bir değer)
+    # Set the new volume level on a specified scale (0.0 - 1.0)
     volume.SetMasterVolumeLevelScalar(new_volume, None)
 
-
 #%%
-
 
 def draw_volume_on_image(img, volume):
-    # Ses seviyesini görüntüye yazdırma işlemi
-    cv2.putText(img, f"Ses Seviyesi: {volume}%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
+    cv2.putText(img, f"Volume Level: {volume}%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 
 #%%
 
-# Sonsuz bir döngü başlatılır, bu döngü her zaman çalışır.
+# Start an infinite loop that runs continuously
 while True:
-    # Kameradan bir video çerçevesi okur ve çerçeveyi 'sucsess' ve 'img2' değişkenlerine atar.
+    # Read a video frame from the camera and assign it to 'sucsess' and 'img2' variables.
     sucsess, img2 = cap.read()
     
-    # Okunan çerçeve, BGR renk formatından RGB renk formatına dönüştürülür ve 'imgRGB' adlı yeni bir değişkene kaydedilir.
-    #RGB formatına çevirlmesinin sebebi elleri algılayacak modelin rgb formatını destekliyor olmasıdır.
+    # Convert the read frame from BGR color format to RGB color format and store it in the 'imgRGB' variable.
+    # The reason for converting to RGB format is that the model for hand detection supports RGB format.
     imgRGB = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
     
-    # Elleri algılamak için mediapipe ile işlem yapar ve sonuçları 'results' adlı bir değişkene atar.
+    # Process the image with mediapipe to detect hands and store the results in the 'results' variable.
     results = hands.process(imgRGB)
         
-    # Eğer birden fazla el tespit edilmişse:
+    # If more than one hand is detected:
     if results.multi_hand_landmarks:
-        # Her el için döngü başlatılır.
+        # Start a loop for each hand.
         for handlms in results.multi_hand_landmarks:
-            # Ellerin landmark'larını çizer ve çerçeve üzerine işler.
+            # Draw landmarks of the hands and overlay them on the frame.
             mpDraw.draw_landmarks(img2, handlms, mpHands.HAND_CONNECTIONS)
 
 
 #%%
 
-            # Ellerin landmark'larını taramak için bir döngü başlatılır.
+            # Start a loop to iterate through the landmarks of the hands.
             for id, lm in enumerate(handlms.landmark):
 
-                # Çerçevenin boyutları (yükseklik, genişlik ve kanal sayısı) alınır
+                # Get the dimensions of the frame (height, width, and number of channels)
                 h, w, c = img2.shape
 
 
-            # İşaret parmağı (4), başparmak (8), orta parmak (12) ve serçe parmağı (20) mevcutsa:
+            # If the index finger (4), thumb (8), middle finger (12), and pinky finger (20) are present:
             if (
                 handlms.landmark[4] and
                 handlms.landmark[8] and
@@ -114,119 +110,114 @@ while True:
                 handlms.landmark[20]
             ):
 
-                # İlgili landmark'ların ekran koordinatlarını hesapla
+                # Calculate screen coordinates of the relevant landmarks
                 
-                #Baş parmak
+                #Thumb
                 x1, y1 = int(handlms.landmark[4].x * w), int(handlms.landmark[4].y * h) 
                 
-                #İşaret parmak
+                #Index finger
                 x2, y2 = int(handlms.landmark[8].x * w), int(handlms.landmark[8].y * h)
                 
-                #Orta parmak
+                #Middle finger
                 x3, y3 = int(handlms.landmark[12].x * w), int(handlms.landmark[12].y * h)
                 
-                #Serçe parmak
+                #Pinky finger
                 x4, y4 = int(handlms.landmark[20].x * w), int(handlms.landmark[20].y * h)
 
 
-                # İlgili noktalar arasındaki mesafeyi hesaplar
+                # Calculate distances between relevant points
                 
-                #Başparmak ile işaret parmak arasındaki mesafeyi hesaplar
+                # Calculate the distance between thumb and index finger
                 distance_vol_up = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) 
                 
-                #Başparmak ile orta parmak arasındaki mesafeyi hesaplar.
+                # Calculate the distance between thumb and middle finger
                 distance_vol_down = math.sqrt((x3 - x1)**2 + (y3 - y1)**2)
                 
-                #Başparmak ile serçe parmak arasındaki mesafeyi hesaplar.
+                # Calculate the distance between thumb and pinky finger
                 distance_pause = math.sqrt((x4 - x1)**2 + (y4 - y1)**2)
 
 #%%
 
-                #Başparmak ve serçe parmak arasındaki mesafe (distance_pause) '45' eşik değerinden küçükse:
+                # If the distance between thumb and pinky finger (distance_pause) is less than or equal to 45:
                 if distance_pause <= 45: 
             
-                    # "space" tuşuna basar.
+                    # Press the "space" key
                     pg.press("space") 
                     
-                    # 0.2 saniye bekler.
+                    # Wait for 0.2 seconds
                     time.sleep(0.2) 
                       
-                # Ses yükseltme mesafesi '30' eşik değerinden küçükse:
+                # If the distance between thumb and index finger (distance_vol_up) is less than 30:
                 elif distance_vol_up < 30: 
                     
-                    # Eğer ses seviyesi '100' değerinden küçükse, 
+                    # If the volume is less than 100, increase it by 2
                     if vol < 100:  
                         
-                        #ses seviyesini 2 artır.
+                        # Increase the volume by 2
                         vol += 2  
                             
-                    # Ses seviyesini oran olarak hesapla ve maksimum değeri '1.0' ile sınırla.
-                    # '1.0' ile sınırlandırılmasının sebebi ses seviyesinin maksimum %100 ' e kadar arttırılabilmesidir.
+                    # Calculate volume as a ratio and limit it to a maximum of 1.0
                     volratio = min(1.0, vol / 100)  
                         
-                    # Sistem ses seviyesini ayarlayan fonksiyona volratio değişkeni gönderilir ve ses ayarlanır.
+                    # Call the function to set the system volume with volratio
                     set_system_volume(volratio) 
                     
-                    #Ses seviyesini yazdır
-                    print(vol)
+                    # Print the volume level
+                    print(vol) 
                         
                 
-                # Ses düşürme mesafesi '30' eşik değerinden küçükse:
+                # If the distance between thumb and middle finger (distance_vol_down) is less than 30:
                 elif distance_vol_down < 30: 
                     
-                    # Eğer ses seviyesi '0' değerinden büyükse, 
+                    # If the volume is greater than 0, decrease it by 2
                     if vol > 0:  
                         
-                        #ses seviyesini 2 azalt.
+                        # Decrease the volume by 2
                         vol -= 2 
                             
                     
-                    # Ses seviyesini oran olarak hesapla ve minimum değeri '0.0' ile sınırla.
-                    # '0.0' ile sınırlandırılmasının sebebi ses seviyesinin minimum  %0 ' a kadar azaltılabilmesidir.
+                    # Calculate volume as a ratio and limit it to a minimum of 0.0
                     volratio = max(0.0, vol / 100 )
                        
-                    # Sistem ses seviyesini ayarlayan fonksiyona volratio değişkeni gönderilir ve ses ayarlanır.
+                    # Call the function to set the system volume with volratio
                     set_system_volume(volratio)
                     
-                    #Ses seviyesini yazdır
+                    # Print the volume level
                     print(vol)
-                    
+
 #%%
 
-                # İki nokta arasında bir çizgi çizer (işaret parmağından başparmağa)
+                # Draw lines between two points (from index finger to thumb)
                 cv2.line(img2, (x1, y1), (x2, y2), (255, 255, 255), 4)  
 
-                # İki nokta arasında bir çizgi çizer (orta parmak ile işaret parmağı arasında)
+                # Draw lines between two points (from middle finger to index finger)
                 cv2.line(img2, (x3, y3), (x1, y1), (255, 255, 255), 4) 
 
-                # İki nokta arasında bir çizgi çizer (yüzük parmağı ile işaret parmağı arasında)
+                # Draw lines between two points (from pinky finger to thumb)
                 cv2.line(img2, (x4, y4), (x1, y1), (255, 255, 255), 4)  
 
-                # İşaret parmağı ve başparmak için dolgulu daireler çizer
-                cv2.circle(img2, (x1, y1), 6, (255, 255, 0), cv2.FILLED)  # İşaret parmağı
-                cv2.circle(img2, (x2, y2), 6, (255, 255, 0), cv2.FILLED)  # Başparmak
+                # Draw filled circles for index finger and thumb
+                cv2.circle(img2, (x1, y1), 6, (255, 255, 0), cv2.FILLED)  # Index finger
+                cv2.circle(img2, (x2, y2), 6, (255, 255, 0), cv2.FILLED)  # Thumb
 
-                # Orta parmak ve serçe parmağı için dolgulu daireler çizer
-                cv2.circle(img2, (x3, y3), 6, (255, 255, 0), cv2.FILLED)  # Orta parmak
-                cv2.circle(img2, (x4, y4), 6, (255, 255, 0), cv2.FILLED)  # Serçe parmağı
+                # Draw filled circles for middle finger and pinky finger
+                cv2.circle(img2, (x3, y3), 6, (255, 255, 0), cv2.FILLED)  # Middle finger
+                cv2.circle(img2, (x4, y4), 6, (255, 255, 0), cv2.FILLED)  # Pinky finger
 
 
 #%%
-    draw_volume_on_image(img2, vol)
     
-    # Resmi yatay eksende (sol-sağ) çevirerek ayna görüntüsü elde eder
-    # img2 = cv2.flip(img2, 1)
+    draw_volume_on_image(img2, vol)
 
-    # 'img' adında bir pencere açar ve çerçeveyi bu pencerede gösterir
+    # Open a window called 'img' and display the frame in this window
     cv2.imshow("img", img2)
 
-    # Bir tuşa basılmasını bekler ve 'q' tuşuna basılırsa döngüyü sonlandırır
+    # Wait for a key press and exit the loop if the 'q' key is pressed
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# Kamera kaynağını serbest bırakır
+# Release the camera source
 cap.release()
 
-# Tüm penceleri kapatır ve programı sonlandırır
+# Close all windows and exit the program
 cv2.destroyAllWindows()
-
